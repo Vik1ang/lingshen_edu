@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #define RED 1
 #define BLACK 2
 
@@ -5,6 +9,7 @@ typedef int KEY_TYPE;
 
 int key_compare(KEY_TYPE a, KEY_TYPE b)
 {
+	// TODO
 	return 0;
 }
 
@@ -22,6 +27,38 @@ typedef struct _rbtree {
 	rbtree_node* root; // 根结点
 	rbtree_node* nil; // 空结点, 所有空结点都指向这个
 } rbtree;
+
+rbtree_node* rbtree_min(rbtree* T, rbtree_node* x)
+{
+	while(x->left != T->nil) {
+		x = x->left;
+	}
+	return x;
+}
+
+rbtree_node* rbtree_max(rbtree* T, rbtree_node* x)
+{
+	while (x->right != T->nil) {
+		x = x->right;
+	}
+	return x;
+}
+
+rbtree_node* rbtree_successor(rbtree* T, rbtree_node* x)
+{
+	// 找到第一个比x大的
+	if (x->right != T->nil) {
+		return rbtree_min(T, x->right);
+	}
+
+	rbtree_node* y = x->parent;
+	while ((y != T->nil) && (x == y->right)) {
+		x = y;
+		y = y->parent;
+	}
+
+	return y;
+}
 
 void _left_rotate(rbtree* T, rbtree_node* x)
 {
@@ -74,7 +111,7 @@ void rbtree_insert_fixup(rbtree* T, rbtree_node* z)
 		// 父节点是祖父节点的左子树还是右子树
 		// 左子树
 		if (z->parent == z->parent->parent->left) {
-			rbtree_node* y = z->parent->right; // 叔父结点
+			rbtree_node* y = z->parent->parent->right; // 叔父结点
 			// 1. 叔父结点是红色
 			if (y->color == RED) {
 				// 把祖父结点变成红色, 把父节点和叔父结点变成黑色
@@ -94,7 +131,7 @@ void rbtree_insert_fixup(rbtree* T, rbtree_node* z)
 					z = z->parent;
 					_left_rotate(T, z);
 				}
-
+				// 2. 叔父结点是黑色, 当前结点是左子树 这种情况会直接进行右旋平衡
 				z->parent->color = BLACK;
 				z->parent->parent->color = RED;
 				// 右旋祖父结点
@@ -108,11 +145,12 @@ void rbtree_insert_fixup(rbtree* T, rbtree_node* z)
 				z->parent->parent->color = RED;
 				z = z->parent->parent;
 			} else {
-				// 2. 叔父结点是黑色, 当前结点是左子树 这种情况会直接进行右旋平衡
+				// 3. 叔父结点是黑色, 当前结点是左子树
 				if (z == z->parent->left) {
 					z = z->parent;
 					_right_rotate(T, z);
 				}
+				// 2. 叔父结点是黑色, 当前结点是左子树 这种情况会直接进行左平衡
 				z->parent->color = BLACK;
 				z->parent->parent->color = RED;
 				_left_rotate(T, z->parent->parent);
@@ -167,8 +205,175 @@ void rbtree_insert(rbtree* T, rbtree_node* z)
 	rbtree_insert_fixup(T, z);
 }
 
+// TODO
+void rbtree_delete_fixup(rbtree* T, rbtree_node* x)
+{
+	while ((x != T->root) && (x->color == BLACK)) {
+		if (x == x->parent->left) {
+
+			rbtree_node *w= x->parent->right;
+			if (w->color == RED) {
+				w->color = BLACK;
+				x->parent->color = RED;
+
+				_left_rotate(T, x->parent);
+				w = x->parent->right;
+			}
+
+			if ((w->left->color == BLACK) && (w->right->color == BLACK)) {
+				w->color = RED;
+				x = x->parent;
+			} else {
+
+				if (w->right->color == BLACK) {
+					w->left->color = BLACK;
+					w->color = RED;
+					_right_rotate(T, w);
+					w = x->parent->right;
+				}
+
+				w->color = x->parent->color;
+				x->parent->color = BLACK;
+				w->right->color = BLACK;
+				_left_rotate(T, x->parent);
+
+				x = T->root;
+			}
+
+		} else {
+
+			rbtree_node *w = x->parent->left;
+			if (w->color == RED) {
+				w->color = BLACK;
+				x->parent->color = RED;
+				_right_rotate(T, x->parent);
+				w = x->parent->left;
+			}
+
+			if ((w->left->color == BLACK) && (w->right->color == BLACK)) {
+				w->color = RED;
+				x = x->parent;
+			} else {
+
+				if (w->left->color == BLACK) {
+					w->right->color = BLACK;
+					w->color = RED;
+					_left_rotate(T, w);
+					w = x->parent->left;
+				}
+
+				w->color = x->parent->color;
+				x->parent->color = BLACK;
+				w->left->color = BLACK;
+				_right_rotate(T, x->parent);
+
+				x = T->root;
+			}
+
+		}
+	}
+
+	x->color = BLACK;
+
+}
+
 rbtree_node* rbtree_delete(rbtree* T, rbtree_node* z)
 {
-	// TODO: 还没完成
+	rbtree_node* y = T->nil;
+	rbtree_node* x = T->nil;
+
+	if ((z->left == T->nil) || (z->right == T->nil)) {
+		y = z;
+	} else {
+		y = rbtree_successor(T, z); // 1. 找出第一个比自己大的数
+	}
+
+	if (y->left != T->nil) {
+		x = y->left;
+	} else if (y == y->parent->left) {
+		x = y->right;
+	}
+
+	x->parent = y->parent;
+	if (y->parent == T->nil) {
+		T->root = x;
+	} else if (y == y->parent->left) {
+		y->parent->left = x;
+	} else {
+		y->parent->right = x;
+	}
+
+	if (y != z) {
+		z->key = y->key;
+		z->value = y->value;
+	}
+
+	if (y->color == BLACK) {
+		rbtree_delete_fixup(T, x);
+	}
+	return y;
+}
+
+rbtree_node* rbtree_search(rbtree* T, KEY_TYPE key)
+{
+	rbtree_node* node = T->root;
+	while (node != T->nil) {
+		if (key < node->key) {
+			node = node->left;
+		} else if (key > node->key) {
+			node = node->right;
+		} else {
+			return node;
+		}
+	}
+
 	return T->nil;
+}
+
+void rbtree_traversal(rbtree* T, rbtree_node* node)
+{
+	if (node != T->nil) {
+		rbtree_traversal(T, node->left);
+		printf("key:%d, color:%d\n", node->key, node->color);
+		rbtree_traversal(T, node->right);
+	}
+}
+
+int main()
+{
+	int keyArray[20] = {24,25,13,35,23, 26,67,47,38,98, 20,19,17,49,12, 21,9,18,14,15};
+
+	rbtree* T = (rbtree*)malloc(sizeof(rbtree));
+	if (T == NULL) {
+		printf("malloc failed\n");
+		return -1;
+	}
+
+	T->nil = (rbtree_node*)malloc(sizeof(rbtree_node));
+	T->nil->color = BLACK;
+	T->root = T->nil;
+
+	rbtree_node* node = T->nil;
+	int i = 0;
+	for (i = 0; i < 20; i++) {
+		node = (rbtree_node*)malloc(sizeof(rbtree_node));
+		node->key = keyArray[i];
+		node->value = NULL;
+
+		rbtree_insert(T, node);
+	}
+	
+	rbtree_traversal(T, T->root);
+	printf("----------------------------------------\n");
+
+	for (i = 0;i < 20;i ++) {
+
+		rbtree_node *node = rbtree_search(T, keyArray[i]);
+		rbtree_node *cur = rbtree_delete(T, node);
+		free(cur);
+
+		rbtree_traversal(T, T->root);
+		printf("----------------------------------------\n");
+	}
+
 }
