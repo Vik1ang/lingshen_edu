@@ -89,22 +89,39 @@ void rbtree_insert_fixup(rbtree* T, rbtree_node* z)
 				z = z->parent->parent;
 			} else {
 				// 3. 叔父结点是黑色, 当前结点是右子树
-				// 2. 叔父结点是黑色, 当前结点是左子树 这种情况会直接进行右旋平衡
 				if (z == z->parent->right) {
 					// 左旋完之后, 会把父节点旋转成为子节点
 					z = z->parent;
 					_left_rotate(T, z);
 				}
-				 
+
 				z->parent->color = BLACK;
 				z->parent->parent->color = RED;
 				// 右旋祖父结点
 				_right_rotate(T, z->parent->parent);
 			}
+		} else {
+			rbtree_node* y = z->parent->parent->left;
+			if (y -> color == RED) {
+				z->parent->color = BLACK;
+				y->color = BLACK;
+				z->parent->parent->color = RED;
+				z = z->parent->parent;
+			} else {
+				// 2. 叔父结点是黑色, 当前结点是左子树 这种情况会直接进行右旋平衡
+				if (z == z->parent->left) {
+					z = z->parent;
+					_right_rotate(T, z);
+				}
+				z->parent->color = BLACK;
+				z->parent->parent->color = RED;
+				_left_rotate(T, z->parent->parent);
+			}
 		}
-		
-		T->root->color = BLACK;
 	}
+
+	// 把根节点的颜色置为黑色
+	T->root->color = BLACK;
 }
 
 void rbtree_insert(rbtree* T, rbtree_node* z)
@@ -148,4 +165,10 @@ void rbtree_insert(rbtree* T, rbtree_node* z)
 
 
 	rbtree_insert_fixup(T, z);
+}
+
+rbtree_node* rbtree_delete(rbtree* T, rbtree_node* z)
+{
+	// TODO: 还没完成
+	return T->nil;
 }
