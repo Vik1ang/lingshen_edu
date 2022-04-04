@@ -46,12 +46,12 @@ rbtree_node* rbtree_max(rbtree* T, rbtree_node* x)
 
 rbtree_node* rbtree_successor(rbtree* T, rbtree_node* x)
 {
+	rbtree_node* y = x->parent;
 	// 找到第一个比x大的
 	if (x->right != T->nil) {
 		return rbtree_min(T, x->right);
 	}
 
-	rbtree_node* y = x->parent;
 	while ((y != T->nil) && (x == y->right)) {
 		x = y;
 		y = y->parent;
@@ -287,10 +287,10 @@ rbtree_node* rbtree_delete(rbtree* T, rbtree_node* z)
 	} else {
 		y = rbtree_successor(T, z); // 1. 找出第一个比自己大的数
 	}
-
+	
 	if (y->left != T->nil) {
 		x = y->left;
-	} else if (y == y->parent->left) {
+	} else if (y->right != T->nil) {
 		x = y->right;
 	}
 
@@ -307,7 +307,7 @@ rbtree_node* rbtree_delete(rbtree* T, rbtree_node* z)
 		z->key = y->key;
 		z->value = y->value;
 	}
-
+	
 	if (y->color == BLACK) {
 		rbtree_delete_fixup(T, x);
 	}
@@ -362,12 +362,12 @@ int main()
 
 		rbtree_insert(T, node);
 	}
-	
+
 	rbtree_traversal(T, T->root);
 	printf("----------------------------------------\n");
 
-	for (i = 0;i < 20;i ++) {
-
+	for (i = 0; i < 20; i ++) {
+		printf("%d \n", i);
 		rbtree_node *node = rbtree_search(T, keyArray[i]);
 		rbtree_node *cur = rbtree_delete(T, node);
 		free(cur);
