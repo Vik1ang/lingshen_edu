@@ -83,7 +83,7 @@ void btree_split_child(struct btree* T, struct btree_node* x, int i)
     }
     // 把复制出来的结点放到x结点上
     x->children[i + 1] = z;
-    for (j = x->num - 1; j >= i; j--) {
+    for (int j = x->num - 1; j >= i; j--) {
         x->keys[j + 1] = x->keys[j];
     }
     
@@ -133,4 +133,9 @@ void btree_insert(struct btree* T, KEY_TYPE key)
     } else {
         btree_insert_not_full(T, root, key);
     }
+}
+
+
+int main() {
+    return 0;
 }
