@@ -73,30 +73,35 @@ void btree_split_child(struct btree* T, struct btree_node* x, int i)
         }
     }
     
-    // Y的修改
+    // 中间结点分裂
     y->num = T->t - 1;
 
     // X 的修改
-    // 选择插入位置, 并把指针后移
+    // 选择分裂结点插入位置, 并把指针后移, 空个位置出来
     for (int j = x->num; j >= i + 1; j--) {
         x->children[j + 1] = x->children[j];
     }
+    // 把复制出来的结点放到x结点上
     x->children[i + 1] = z;
     for (j = x->num - 1; j >= i; j--) {
         x->keys[j + 1] = x->keys[j];
     }
-
+    
+    // X
     x->keys[i] = y->keys[T->t - 1];
     x->num += 1;
 }
 
 void btree_insert_not_full(struct btree* T, struct btree_node* x, KEY_TYPE key) {
+    // 当前x结点最后一个key的索引
     int i = x->num - 1;
     if (x->leaf) {
+        // 寻找插入位置, 如果不是最后一个后移指针
         while (i >= 0 && x->keys[i] > key) {
             x->keys[i + 1] = x->keys[i];
             i--;
         }
+        // 插入key
         x->keys[i + 1] = key;
         x->num += 1;
     } else {
