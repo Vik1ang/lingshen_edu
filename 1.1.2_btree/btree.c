@@ -283,6 +283,53 @@ int btree_delete(struct btree* T, KEY_TYPE key) {
     return 0;
 }
 
+void btree_print(struct btree *T, struct btree_node *node, int layer)
+{
+        struct btree_node* p = node;
+            int i;
+            if(p){
+                        printf("\nlayer = %d keynum = %d is_leaf = %d\n", layer, p->num, p->leaf);
+                                for(i = 0; i < node->num; i++)
+                                                printf("%c ", p->keys[i]);
+                                        printf("\n");
+#if 0
+                                                printf("%p\n", p);
+                                                        for(i = 0; i <= 2 * T->t; i++)
+                                                                        printf("%p ", p->childrens[i]);
+                                                                printf("\n");
+#endif
+                                                                        layer++;
+                                                                                for(i = 0; i <= p->num; i++)
+                                                                                                if(p->children[i])
+                                                                                                                    btree_print(T, p->children[i], layer);
+                                                                                    
+            }
+                else printf("the tree is empty\n");
+                
+}
+
+
 int main() {
+    struct btree T = {0};
+
+	btree_create(&T, 3);
+	srand(48);
+
+	int i = 0;
+	char key[26] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	for (i = 0;i < 26;i ++) {
+		//key[i] = rand() % 1000;
+		printf("%c ", key[i]);
+		btree_insert(&T, key[i]);
+	}
+
+	btree_print(&T, T.root, 0);
+
+	for (i = 0;i < 26;i ++) {
+		printf("\n---------------------------------\n");
+		btree_delete(&T, key[25-i]);
+		//btree_traverse(T.root);
+		btree_print(&T, T.root, 0);
+	}
     return 0;
 }
