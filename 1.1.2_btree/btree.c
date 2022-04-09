@@ -288,23 +288,22 @@ void btree_print(struct btree *T, struct btree_node *node, int layer)
         struct btree_node* p = node;
             int i;
             if(p){
-                        printf("\nlayer = %d keynum = %d is_leaf = %d\n", layer, p->num, p->leaf);
-                                for(i = 0; i < node->num; i++)
-                                                printf("%c ", p->keys[i]);
-                                        printf("\n");
+                printf("\nlayer = %d keynum = %d is_leaf = %d\n", layer, p->num, p->leaf);
+                for(i = 0; i < node->num; i++)
+                    printf("%c ", p->keys[i]);
+                printf("\n");
 #if 0
-                                                printf("%p\n", p);
-                                                        for(i = 0; i <= 2 * T->t; i++)
-                                                                        printf("%p ", p->childrens[i]);
-                                                                printf("\n");
+                printf("%p\n", p);
+                for(i = 0; i <= 2 * T->t; i++)
+                    printf("%p ", p->childrens[i]);
+                printf("\n");
 #endif
-                                                                        layer++;
-                                                                                for(i = 0; i <= p->num; i++)
-                                                                                                if(p->children[i])
-                                                                                                                    btree_print(T, p->children[i], layer);
-                                                                                    
+                layer++;
+                for(i = 0; i <= p->num; i++)
+                    if(p->children[i])
+                        btree_print(T, p->children[i], layer);
             }
-                else printf("the tree is empty\n");
+            else printf("the tree is empty\n");
                 
 }
 
