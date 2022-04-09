@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #define M 3
 
@@ -135,6 +136,152 @@ void btree_insert(struct btree* T, KEY_TYPE key)
     }
 }
 
+//{child[idx], key[idx], child[idx+1]}
+void btree_merge(struct btree *T, struct btree_node *node, int idx) {
+    struct btree_node *left = node->children[idx];
+	struct btree_node *right = node->children[idx+1];
+
+	int i = 0;
+
+	//data merge
+	left->keys[T->t-1] = node->keys[idx];
+	for (i = 0;i < T->t-1;i ++) {
+		left->keys[T->t+i] = right->keys[i];
+	}
+	if (!left->leaf) {
+		for (i = 0;i < T->t;i ++) {
+			left->children[T->t+i] = right->children[i];
+		}
+	}
+	left->num += T->t;
+
+	//destroy right
+	btree_destroy_node(right);
+
+	//node
+	for (i = idx+1;i < node->num;i ++) {
+		node->keys[i-1] = node->keys[i];
+		node->children[i] = node->children[i+1];
+	}
+	node->children[i+1] = NULL;
+	node->num -= 1;
+
+	if (node->num == 0) {
+		T->root = left;
+		btree_destroy_node(node);
+	}
+}
+
+void btree_delete_key(struct btree* T, struct btree_node* node, KEY_TYPE key) {
+    if (node == NULL) return;
+
+    int idx = 0, i;
+    while (idx < node->num && key > node->keys[idx]) {
+        idx++;
+    }
+
+    if (idx < node->num && key == node->keys[idx]) {
+        if (node->leaf) {
+            for (i = idx; i < node->num - 1; i++) {
+                node->keys[i] = node->keys[i + 1];
+            }
+
+            node->keys[node->num - 1] = 0;
+            node->num--;
+
+            if (node->num == 0) {
+                // root
+                free(node);
+                T->root = NULL;
+            }
+
+            return;
+        } else if (node->children[idx]->num >= T->t) {
+            struct btree_node* right = node->children[idx + 1];
+            node->keys[idx] = right->keys[0];
+
+            btree_delete_key(T, right, right->keys[0]);
+        } else {
+            btree_merge(T, node, idx);
+            btree_delete_key(T, node->children[idx], key);
+        }
+    } else {
+        struct btree_node* child = node->children[idx];
+        if (child == NULL) {
+            printf("Cannot del key = %d\n", key);
+            return;
+        }
+
+        if (child->num == T->t - 1) {
+            struct btree_node* left = NULL;
+            struct btree_node* right = NULL;
+            if (idx - 1 >= 0) {
+                left = node->children[idx - 1];
+            }
+            if (idx + 1 <= node->num) {
+                right = node->children[idx + 1];
+            }
+            if ((left && left->num >= T->t) ||
+                    (right && right->num >= T->t)) {
+                int richR = 0;
+                if (right) richR = 1;
+                if (left && right) richR = (right->num > left->num) ? 1 : 0;
+                
+                if (right && right->num >= T->t && richR) { //borrow from next
+					child->keys[child->num] = node->keys[idx];
+					child->children[child->num+1] = right->children[0];
+					child->num ++;
+
+					node->keys[idx] = right->keys[0];
+					for (i = 0;i < right->num - 1;i ++) {
+						right->keys[i] = right->keys[i+1];
+						right->children[i] = right->children[i+1];
+					}
+
+					right->keys[right->num-1] = 0;
+					right->children[right->num-1] = right->children[right->num];
+					right->children[right->num] = NULL;
+					right->num --;
+
+				} else { //borrow from prev
+
+					for (i = child->num;i > 0;i --) {
+						child->keys[i] = child->keys[i-1];
+						child->children[i+1] = child->children[i];
+					}
+
+					child->children[1] = child->children[0];
+					child->children[0] = left->children[left->num];
+					child->keys[0] = node->keys[idx-1];
+
+					child->num ++;
+
+					node->keys[idx-1] = left->keys[left->num-1];
+					left->keys[left->num-1] = 0;
+					left->children[left->num] = NULL;
+					left->num --;
+				}
+            
+            } else if (!left || (left->num == T->t - 1) &&
+                    (!right || (right->num == T->t - 1))) {
+                if (left && left->num == T->t - 1) {
+					btree_merge(T, node, idx-1);					
+					child = left;
+				} else if (right && right->num == T->t - 1) {
+					btree_merge(T, node, idx);
+				}
+            }
+        }
+        btree_delete_key(T, child, key);
+    }
+}
+
+int btree_delete(struct btree* T, KEY_TYPE key) {
+    if (!T->root) return -1;
+
+    btree_delete_key(T, T->root, key);
+    return 0;
+}
 
 int main() {
     return 0;
