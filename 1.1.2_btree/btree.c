@@ -57,29 +57,71 @@ void btree_create(struct btree* T, int t)
  */
 void btree_split_child(struct btree* T, struct btree_node* x, int i)
 {
-    struct btree_node* y = x->children[i];
-    struct btree_node* z = btree_create_node(T->t, y->leaf);
-
-    int j = 0;
-    for(j = 0; j < T->t - 1; j++) {
-	z->keys[j] = y->keys[j + T->t];
+    struct btree_node* y = x->children[i]; // 第i个子树
+    struct btree_node* z = btree_create_node(T->t, y->leaf); // 创建的新结点用作复制
+   
+    // Z结点的修改
+    // 复制
+    for (int j = 0; j < T->t - 1; j++) {
+        z->keys[j] = y->keys[j + T->t];
     }
-
-    if(y->leaf == 0) {
-	for(j = 0; j < T->t; j++) {
-	    i z->children[j] = z->children[j + T->t];
-	}
+    
+    // 如果有结点, 把结点下的子树一起复制过来
+    if (y->leaf) {
+        for (int j = 0; j < T->t; j++) {
+            z->children[j] = z->children[j + T->t];
+        }
     }
-
+    
+    // Y的修改
     y->num = T->t - 1;
-    for (j = x->
+
+    // X 的修改
+    // 选择插入位置, 并把指针后移
+    for (int j = x->num; j >= i + 1; j--) {
+        x->children[j + 1] = x->children[j];
+    }
+    x->children[i + 1] = z;
+    for (j = x->num - 1; j >= i; j--) {
+        x->keys[j + 1] = x->keys[j];
+    }
+
+    x->keys[i] = y->keys[T->t - 1];
+    x->num += 1;
+}
+
+void btree_insert_not_full(struct btree* T, struct btree_node* x, KEY_TYPE key) {
+    int i = x->num - 1;
+    if (x->leaf) {
+        while (i >= 0 && x->keys[i] > key) {
+            x->keys[i + 1] = x->keys[i];
+            i--;
+        }
+        x->keys[i + 1] = key;
+        x->num += 1;
+    } else {
+        while (i >= 0 && x->keys[i] > key) i--;
+        if (x->children[i + 1]->num == 2 * T->t - 1) {
+            btree_split_child(T, x, i + 1);
+            if (key > x->keys[i + 1]) i++;                  
+        }
+
+        btree_insert_not_full(T, x->children[i + 1], key);
+    }
 }
 
 // insert
 void btree_insert(struct btree* T, KEY_TYPE key)
 {
     struct btree_node* root = T->root;
-    if(root->num) {
-	
+    // 根节点数量满了
+    if (root->num == 2 * T->t - 1) {
+       struct btree_node* node = btree_create_node(T->t, 0);
+       T->root = node;
+       node->children[0] = root;
+       
+       btree_split_child(T, node, 0);
+    } else {
+
     }
 }
