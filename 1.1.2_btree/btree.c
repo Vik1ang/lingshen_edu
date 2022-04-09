@@ -105,9 +105,13 @@ void btree_insert_not_full(struct btree* T, struct btree_node* x, KEY_TYPE key) 
         x->keys[i + 1] = key;
         x->num += 1;
     } else {
+        // 判断是插入在哪个子树上
         while (i >= 0 && x->keys[i] > key) i--;
+        // 对比子树
+        // 如果满了就进行分裂
         if (x->children[i + 1]->num == 2 * T->t - 1) {
             btree_split_child(T, x, i + 1);
+            // 这个真的非常绝, 就知道是插入在分裂之后的哪个子树上
             if (key > x->keys[i + 1]) i++;                  
         }
 
@@ -121,12 +125,12 @@ void btree_insert(struct btree* T, KEY_TYPE key)
     struct btree_node* root = T->root;
     // 根节点数量满了
     if (root->num == 2 * T->t - 1) {
-       struct btree_node* node = btree_create_node(T->t, 0);
-       T->root = node;
-       node->children[0] = root;
+        struct btree_node* node = btree_create_node(T->t, 0);
+        T->root = node;
+        node->children[0] = root;
        
-       btree_split_child(T, node, 0);
+        btree_split_child(T, node, 0);
     } else {
-
+        btree_insert_not_full(T, root, key);
     }
 }
