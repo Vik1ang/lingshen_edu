@@ -78,6 +78,41 @@ private:
     int _type;
 };
 
+class ZooShowEx1: public ZooShow {
+   protected: 
+       virtual bool Show0() {
+            std::cout << "show0" << std::endl;
+            return true;
+       }
+       virtual void show2() {
+           std::cout << "show2" << std::endl;
+       }
+}
+
+class ZooShowEx2 : public ZooShow {
+protected:
+    virtual void Show1(){
+        std::cout << "show1" << std::endl;
+    }
+    virtual void Show2(){
+        std::cout << "show3" << std::endl;
+    }
+};
+
+class ZooShowEx3 : public ZooShow {
+protected:
+    virtual void Show1(){
+        std::cout << "show1" << std::endl;
+    }
+    virtual void Show3(){
+        std::cout << "show3" << std::endl;
+    }
+    virtual void Show4() {
+        //
+    }
+};
+
+
 #endif
 
 int main() {
@@ -89,7 +124,7 @@ int main() {
     zs->Show2();
     zs1->Show3();
 #else if 2
-    ZooShow *zs = new ZooShow(1);
+    ZooShow *zs = new ZooShowEx1;
     zs->Show();
 #endif
     return 0;
