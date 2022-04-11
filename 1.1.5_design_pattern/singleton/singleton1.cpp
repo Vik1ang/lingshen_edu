@@ -15,6 +15,4 @@ private:
     static Singleton* _instance;
 };
 
-int main() {
-    Singleton* Singleton::_instance = nullptr; // 静态成员需要初始化
-}
+Singleton* Singleton::_instance = nullptr; // 静态成员需要初始化
