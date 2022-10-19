@@ -1,0 +1,2 @@
+add_executable(reactor_singlecb_c1000k_c_1 reactor_singlecb_c1000k_c_1.c)
+target_link_libraries(reactor_singlecb_c1000k_c_1 PUBLIC Threads::Threads)
