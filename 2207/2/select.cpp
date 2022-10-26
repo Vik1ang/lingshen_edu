@@ -66,7 +66,7 @@ int main() {
         ret = send(client_fd, buffer, ret, 0);
     }
 
-#else
+#elif 0
 
     while (true) {
         struct sockaddr_in client {};
@@ -76,6 +76,50 @@ int main() {
 
         std::thread t([&] { routine(client_fd); });
         t.detach();
+    }
+
+#else
+
+    fd_set r_fds, w_fds, r_set, w_set;
+
+    FD_ZERO(&r_fds);
+    FD_SET(listen_fd, &r_fds);
+
+    FD_ZERO(&w_fds);
+
+    int max_fd = listen_fd;
+    while (true) {
+        r_set = r_fds;
+        w_set = w_fds;
+
+        int n_ready = select(max_fd + 1, &r_set, &w_set, nullptr, nullptr);
+        if (FD_ISSET(listen_fd, &r_set)) {
+            std::cout << "listen_fd --->" << std::endl;
+
+            struct sockaddr_in client {};
+            socklen_t len = sizeof(client);
+            int client_fd = accept(listen_fd, reinterpret_cast<struct sockaddr*>(&client), &len);
+            std::cout << "client_fd: " << client_fd << std::endl;
+
+            FD_SET(client_fd, &r_fds);
+
+            if (client_fd > max_fd) {
+                max_fd = client_fd;
+            }
+        }
+
+        for (int i = listen_fd + 1; i <= max_fd; i++) {
+            if (FD_ISSET(i, &r_set)) {  // 可读
+                std::array<char, BUFFER_LENGTH> buffer{};
+                int ret = recv(i, buffer.data(), BUFFER_LENGTH, 0);
+                if (ret == 0) {
+                    close(i);
+                }
+                std::cout << "buffer: " << buffer.data() << ", ret: " << ret << std::endl;
+
+                ret = send(i, buffer.data(), ret, 0);
+            }
+        }
     }
 
 #endif

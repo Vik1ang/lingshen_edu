@@ -50,6 +50,8 @@ int main() {
     listen(listen_fd, 10);
 
 #if 0
+
+    // 单线程
     struct sockaddr_in client;
     socklen_t len = sizeof(client);
     int client_fd = accept(listen_fd, (struct sockaddr*)&client, &len);
@@ -64,7 +66,9 @@ int main() {
         ret = send(client_fd, buffer, ret, 0);
     }
 
-#else
+#elif 0
+
+    // 多线程
 
     while (1) {
         struct sockaddr_in client;
@@ -73,6 +77,51 @@ int main() {
 
         pthread_t thread_id = 0;
         pthread_create(&thread_id, NULL, routine, &client_fd);
+    }
+
+#else
+    // select
+    // IO 多路复用
+    // 检查 IO 是否有事件
+    fd_set r_fds, w_fds, r_set, w_set;
+
+    FD_ZERO(&r_fds);
+    FD_SET(listen_fd, &r_fds);
+
+    FD_ZERO(&w_fds);
+
+    int max_fd = listen_fd;
+    while (1) {
+        r_set = r_fds;
+        w_set = w_fds;
+
+        int n_ready = select(max_fd + 1, &r_set, &w_set, NULL, NULL);
+        if (FD_ISSET(listen_fd, &r_set)) {
+            printf("listen_fd --->\n");
+
+            struct sockaddr_in client;
+            socklen_t len = sizeof(client);
+            int client_fd = accept(listen_fd, (struct sockaddr*)&client, &len);
+            printf("client_fd: %d\n", client_fd);
+
+            FD_SET(client_fd, &r_fds);
+
+            if (client_fd > max_fd) {
+                max_fd = client_fd;
+            }
+        }
+
+        for (int i = listen_fd + 1; i <= max_fd; i++) {
+            if (FD_ISSET(i, &r_set)) {  // 可读
+                unsigned char buffer[BUFFER_LENGTH] = {0};
+                int ret = recv(i, buffer, BUFFER_LENGTH, 0);
+                if (ret == 0) {
+                    close(i);
+                }
+                printf("buffer: %s, ret: %d\n", buffer, ret);
+                ret = send(i, buffer, ret, 0);
+            }
+        }
     }
 
 #endif
