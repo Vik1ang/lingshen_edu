@@ -11,3 +11,4 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 find_package(Threads REQUIRED)
 
 add_subdirectory(2)
+add_subdirectory(3)
