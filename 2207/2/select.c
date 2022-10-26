@@ -91,6 +91,8 @@ int main() {
     FD_ZERO(&w_fds);
 
     int max_fd = listen_fd;
+    unsigned char buffer[BUFFER_LENGTH] = {0};
+    int ret = 0;
     while (1) {
         r_set = r_fds;
         w_set = w_fds;
@@ -113,13 +115,22 @@ int main() {
 
         for (int i = listen_fd + 1; i <= max_fd; i++) {
             if (FD_ISSET(i, &r_set)) {  // 可读
-                unsigned char buffer[BUFFER_LENGTH] = {0};
-                int ret = recv(i, buffer, BUFFER_LENGTH, 0);
+                ret = recv(i, buffer, BUFFER_LENGTH, 0);
                 if (ret == 0) {
                     close(i);
+
+                    FD_CLR(i, &r_fds);
+                } else if (ret > 0) {
+                    printf("buffer: %s, ret: %d\n", buffer, ret);
+
+                    FD_SET(i, &w_fds);
                 }
-                printf("buffer: %s, ret: %d\n", buffer, ret);
+
+            } else if (FD_ISSET(i, &w_set)) {  // 可写
                 ret = send(i, buffer, ret, 0);
+
+                FD_CLR(i, &w_fds);
+                FD_SET(i, &r_fds);
             }
         }
     }
