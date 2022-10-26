@@ -5,11 +5,12 @@
 
 #include <array>
 #include <iostream>
+#include <thread>
 
 #define BUFFER_LENGTH 128
 
-void* routine(void* arg) {
-    int client_fd = *static_cast<int*>(arg);
+void routine(int& client_fd) {
+    //    int client_fd = *static_cast<int*>(arg);
 
     while (true) {
         std::array<char, BUFFER_LENGTH> buffer{};
@@ -22,8 +23,6 @@ void* routine(void* arg) {
 
         ret = send(client_fd, buffer.data(), ret, 0);
     }
-
-    return nullptr;
 }
 
 int main() {
@@ -70,14 +69,13 @@ int main() {
 #else
 
     while (true) {
-
         struct sockaddr_in client {};
         socklen_t len = sizeof(client);
         int client_fd = accept(listen_fd, reinterpret_cast<struct sockaddr*>(&client), &len);
         std::cout << "client_fd: " << client_fd << std::endl;
 
-        pthread_t thread_id = 0;
-        pthread_create(&thread_id, nullptr, routine, &client_fd);
+        std::thread t([&] { routine(client_fd); });
+        t.detach();
     }
 
 #endif
