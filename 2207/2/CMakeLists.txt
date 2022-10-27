@@ -7,3 +7,9 @@ target_link_libraries(select_c PUBLIC Threads::Threads)
 
 add_executable(select_cpp select.cpp)
 target_link_libraries(select_cpp PUBLIC Threads::Threads)
+
+add_executable(epoll_c epoll.c)
+#target_link_libraries(epoll_c PUBLIC Threads::Threads)
+
+add_executable(epoll_cpp epoll.cpp)
+#target_link_libraries(epoll_cpp PUBLIC Threads::Threads)
