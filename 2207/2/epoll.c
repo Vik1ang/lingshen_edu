@@ -1,3 +1,4 @@
+#include <string.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <sys/epoll.h>
@@ -5,6 +6,9 @@
 
 #define BUFFER_LENGTH 128
 #define EVENTS_LENGTH 128
+
+char r_buffer[BUFFER_LENGTH] = {0};
+char w_buffer[BUFFER_LENGTH] = {0};
 
 int main() {
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -36,7 +40,7 @@ int main() {
     printf("epoll_fd: %d\n", epoll_fd);
 
     while (1) {
-        int n_ready = epoll_wait(epoll_fd, epoll_events, EVENTS_LENGTH, 0);  // 0: 立即返回 -1: 阻塞, 0: 以上代表
+        int n_ready = epoll_wait(epoll_fd, epoll_events, EVENTS_LENGTH, 1000);  // 0: 立即返回 -1: 阻塞, 0: 以上代表
         printf("------ n_ready: %d\n", n_ready);
         for (int i = 0; i < n_ready; ++i) {
             int client_fd = epoll_events[i].data.fd;
@@ -44,11 +48,34 @@ int main() {
             if (listen_fd == client_fd) {  // accept
                 struct sockaddr_in client;
                 socklen_t len = sizeof(client);
-                int connection_fd = accept(listen_fd, (struct sockaddr*)&client, &len);
-                printf("accept\t connection_fd: %d\n", connection_fd);
+                int conn_fd = accept(listen_fd, (struct sockaddr*)&client, &len);
+                printf("accept\t conn_fd: %d\n", conn_fd);
+                //                ev.events = EPOLLIN | EPOLLET;  // 水平触发 边沿触发
                 ev.events = EPOLLIN;
-                ev.data.fd = connection_fd;
-                epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connection_fd, &ev);
+                ev.data.fd = conn_fd;
+                epoll_ctl(epoll_fd, EPOLL_CTL_ADD, conn_fd, &ev);
+            } else if (epoll_events[i].events & EPOLLIN) {  // receive
+                int n = recv(client_fd, r_buffer, BUFFER_LENGTH, 0);
+                if (n > 0) {
+                    r_buffer[n] = '\0';
+                    printf("recv: %s\n", r_buffer);
+
+                    memcpy(w_buffer, r_buffer, BUFFER_LENGTH);
+
+                    ev.events = EPOLLOUT;
+                    ev.data.fd = client_fd;
+                    epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_fd, &ev);
+                    //                    send(client_fd, buffer, n, 0);
+                }
+            } else if (epoll_events[i].events & EPOLLOUT) {
+                char w_buffer[BUFFER_LENGTH] = {0};
+
+                int sent = send(client_fd, w_buffer, BUFFER_LENGTH, 0);
+                printf("send: %d\n", sent);
+
+                ev.events = EPOLLIN;
+                ev.data.fd = client_fd;
+                epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_fd, &ev);
             }
         }
     }
