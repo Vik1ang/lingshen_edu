@@ -6,8 +6,8 @@
 #include <cstring>
 #include <iostream>
 
-#define BUFFER_LENGTH 128
-#define EVENTS_LENGTH 128
+constexpr int BUFFER_LENGTH = 128;
+constexpr int EVENTS_LENGTH = 128;
 
 std::array<char, BUFFER_LENGTH> r_buffer{};
 std::array<char, BUFFER_LENGTH> w_buffer{};
@@ -55,7 +55,7 @@ int main() {
                 ev.data.fd = conn_fd;
                 epoll_ctl(epoll_fd, EPOLL_CTL_ADD, conn_fd, &ev);
             } else if (epoll_events[i].events & EPOLLIN) {
-                int n = recv(client_fd, r_buffer.data(), BUFFER_LENGTH, 0);
+                auto n = recv(client_fd, r_buffer.data(), BUFFER_LENGTH, 0);
                 if (n > 0) {
                     r_buffer[n] = '\0';
                     std::cout << "recv: " << r_buffer.data() << std::endl;
@@ -67,7 +67,7 @@ int main() {
                     epoll_ctl(epoll_fd, EPOLL_CTL_MOD, client_fd, &ev);
                 }
             } else if (epoll_events[i].events & EPOLLOUT) {
-                int sent = send(client_fd, w_buffer.data(), BUFFER_LENGTH, 0);
+                auto sent = send(client_fd, w_buffer.data(), BUFFER_LENGTH, 0);
                 std::cout << "send: " << sent << std::endl;
 
                 ev.events = EPOLLIN;
