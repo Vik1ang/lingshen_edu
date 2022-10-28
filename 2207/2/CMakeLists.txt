@@ -13,3 +13,7 @@ add_executable(epoll_c epoll.c)
 
 add_executable(epoll_cpp epoll.cpp)
 #target_link_libraries(epoll_cpp PUBLIC Threads::Threads)
+
+add_executable(reactor_cpp reactor.cpp)
+
+add_executable(reactor_c reactor.c)
