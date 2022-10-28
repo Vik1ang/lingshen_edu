@@ -68,8 +68,6 @@ int main() {
                     //                    send(client_fd, buffer, n, 0);
                 }
             } else if (epoll_events[i].events & EPOLLOUT) {
-                char w_buffer[BUFFER_LENGTH] = {0};
-
                 int sent = send(client_fd, w_buffer, BUFFER_LENGTH, 0);
                 printf("send: %d\n", sent);
 
