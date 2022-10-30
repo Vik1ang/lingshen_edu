@@ -1,6 +1,6 @@
-#include <malloc.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -49,11 +49,12 @@ int main() {
     listen(listen_fd, 10);
 
     struct reactor* r = (struct reactor*)calloc(1, sizeof(struct reactor));
-    if (r = NULL) {
+    if (r == NULL) {
         return -3;
     }
-    r->items = (struct socket_item*)calloc(EVENTS_LENGTH, EVENTS_LENGTH * sizeof(struct socket_item));
+    r->items = (struct socket_item*)calloc(EVENTS_LENGTH, sizeof(struct socket_item));
     if (r->items == NULL) {
+        free(r);
         return -4;
     }
     // epoll
