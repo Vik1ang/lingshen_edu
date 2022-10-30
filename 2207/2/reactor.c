@@ -30,6 +30,8 @@ struct reactor {
 };
 
 int main() {
+    setbuf(stdout, 0); // 奇怪有时候在某些windows电脑上使用不加这个会报错
+
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd == -1) {
         return -1;
