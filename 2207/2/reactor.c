@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #define BUFFER_LENGTH 128
 #define EVENTS_LENGTH 128
@@ -85,6 +86,8 @@ int main() {
                 ev.data.fd = conn_fd;
                 epoll_ctl(r->epoll_fd, EPOLL_CTL_ADD, conn_fd, &ev);
 
+                r->items[conn_fd].fd = conn_fd;
+
                 r->items[conn_fd].r_buffer = calloc(1, BUFFER_LENGTH);
                 r->items->r_length = 0;
 
@@ -106,6 +109,13 @@ int main() {
                     ev.data.fd = client_fd;
                     epoll_ctl(r->epoll_fd, EPOLL_CTL_MOD, client_fd, &ev);
                     //                    send(client_fd, buffer, n, 0);
+                } else if (n == 0) {
+                    free(r_buffer);
+                    free(w_buffer);
+
+                    r->items[client_fd].fd = 0;
+
+                    close(client_fd);
                 }
             } else if (epoll_events[i].events & EPOLLOUT) {
                 char* w_buffer = r->items[client_fd].w_buffer;
