@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,8 +7,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define BUFFER_LENGTH 128
-#define EVENTS_LENGTH 128
+#define BUFFER_LENGTH 1024
+#define EVENTS_LENGTH 1024
 #define ITEM_LENGTH   1024
 
 struct socket_item {
@@ -40,13 +41,13 @@ struct reactor {
 };
 
 int reactor_malloc(struct reactor* r) {  // new event block
-    if (r == NULL || r->ev_blk == NULL) {
+    if (r == NULL) {
         return -1;
     }
 
     struct event_block* blk = r->ev_blk;
 
-    while (blk->next != NULL) {
+    while (blk != NULL && blk->next != NULL) {
         blk = blk->next;
     }
 
@@ -66,19 +67,22 @@ int reactor_malloc(struct reactor* r) {  // new event block
     block->items = item;
     block->next = NULL;
 
-    blk->next = block;
+    if (blk == NULL) {
+        r->ev_blk = block;
+    } else {
+        blk->next = block;
+    }
     r->blk_cnt++;
 
     return 0;
 }
 
 struct socket_item* reactor_lookup(struct reactor* r, int socket_fd) {
-    if (r == NULL || r->ev_blk == NULL) {
+    if (r == NULL || socket_fd <= 0) {
         return NULL;
     }
-    if (socket_fd <= 0) {
-        return NULL;
-    }
+
+    printf("reactor_lookup --> %d\n", r->blk_cnt);
 
     int blk_idx = socket_fd / ITEM_LENGTH;
 
@@ -138,7 +142,7 @@ int main() {
     printf("epoll_fd: %d\n", r->epoll_fd);
 
     while (1) {
-        int n_ready = epoll_wait(r->epoll_fd, epoll_events, EVENTS_LENGTH, 1000);  // 0: 立即返回 -1: 阻塞, 0: 以上代表
+        int n_ready = epoll_wait(r->epoll_fd, epoll_events, EVENTS_LENGTH, -1);  // 0: 立即返回 -1: 阻塞, 0: 以上代表
         //        printf("------ n_ready: %d\n", n_ready);
         for (int i = 0; i < n_ready; ++i) {
             int client_fd = epoll_events[i].data.fd;
@@ -152,6 +156,11 @@ int main() {
                 ev.events = EPOLLIN;
                 ev.data.fd = conn_fd;
                 epoll_ctl(r->epoll_fd, EPOLL_CTL_ADD, conn_fd, &ev);
+
+                int flag = fcntl(conn_fd, F_GETFL, 0);
+                flag |= O_NONBLOCK;
+                fcntl(conn_fd, F_SETFL, flag);
+
 #if 0
                 r->items[conn_fd].fd = conn_fd;
 
