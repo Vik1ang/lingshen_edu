@@ -6,17 +6,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define BUFFER_LENGTH    1024
 #define MAX_EPOLL_EVENTS 1024
 #define RESOURCE_LENGTH  1024
-#define SERVER_PORT      19999
+#define SERVER_PORT      19996
 #define PORT_COUNT       1
 
 #define HTTP_METHOD_GET  0
 #define HTTP_METHOD_POST 1
+
+#define HTTP_WEB_ROOT "/home/vik1ang/Workspace/lingshen/2207/2"
 
 typedef int N_CALLBACK(int, int, void*);
 
@@ -29,6 +33,9 @@ struct nty_event {
     int status;
     char buffer[BUFFER_LENGTH];
     int length;
+
+    char w_buffer[BUFFER_LENGTH];
+    int w_length;
 
     int method;
     char resource[RESOURCE_LENGTH];
@@ -146,7 +153,7 @@ struct nty_event* nty_reactor_idx(struct nty_reactor* reactor, int sock_fd) {
 }
 
 int readline(char* all_buf, int idx, char* line_buf) {
-    int len = strlen(all_buf);
+    size_t len = strlen(all_buf);
 
     for (; idx < len; ++idx) {
         if (all_buf[idx] == '\r' && all_buf[idx + 1] == '\n') {
@@ -160,8 +167,8 @@ int readline(char* all_buf, int idx, char* line_buf) {
 
 int nty_http_request(struct nty_event* ev) {
     char line_buff[1024] = {0};
-    int idx = readline(ev->buffer, 0, line_buff);
-    printf("line: %s\n", line_buff);
+    readline(ev->buffer, 0, line_buff);
+    //    printf("line: %s\n", line_buff);
 
     if (strstr(line_buff, "GET")) {
         ev->method = HTTP_METHOD_GET;
@@ -171,12 +178,64 @@ int nty_http_request(struct nty_event* ev) {
         }
         line_buff[sizeof("GET ") + i] = '\0';
 
-        sprintf(ev->resource, "%s", line_buff + sizeof("GET "));
+        sprintf(ev->resource, "%s/%s", HTTP_WEB_ROOT, line_buff + sizeof("GET "));
 
-        printf("resource: %s", ev->resource);
+        printf("resource: %s\n", ev->resource);
     } else if (strstr(line_buff, "POST")) {
         ev->method = HTTP_METHOD_POST;
     }
+
+    return 0;
+}
+
+int nty_http_response_get_method(struct nty_event* ev) {
+#if 0
+    int len = sprintf(ev->w_buffer,
+                      "HTTP/1.1 200 OK\r\n"
+                      "Accept-Ranges: bytes\r\n"
+                      "Content-Length: 78\r\n"
+                      "Content-Type: text/html\r\n"
+                      "Date: Sun, 06 Nov 2022 15:42:23 GMT\r\n\r\n"
+                      "<html><head><title>0voice.king</title></head><body><h1>King</h1><body/></html>");
+    ev->w_length = len;
+#else
+    int len = 0;
+    int file_fd = open(ev->resource, O_RDONLY);
+    if (file_fd == -1) {
+        len = sprintf(ev->w_buffer,
+                      "HTTP/1.1 200 OK\r\n"
+                      "Accept-Ranges: bytes\r\n"
+                      "Content-Length: 78\r\n"
+                      "Content-Type: text/html\r\n"
+                      "Date: Sun, 06 Nov 2022 15:42:23 GMT\r\n\r\n"
+                      "<html><head><title>0voice.king</title></head><body><h1>King</h1><body/></html>");
+        ev->w_length = len;
+    } else {
+        struct stat stat_buf;
+        fstat(file_fd, &stat_buf);
+        close(file_fd);
+        len = sprintf(ev->w_buffer,
+                      "HTTP/1.1 200 OK\r\n"
+                      "Accept-Ranges: bytes\r\n"
+                      "Content-Length: %ld\r\n"
+                      "Content-Type: text/html\r\n"
+                      "Date: Sun, 06 Nov 2022 15:42:23 GMT\r\n\r\n"
+                      "<html><head><title>0voice.king</title></head><body><h1>King</h1><body/></html>",
+                      stat_buf.st_size);
+        ev->w_length = len;
+    }
+
+#endif
+    return len;
+}
+
+int nty_http_response(struct nty_event* ev) {
+    if (ev->method == HTTP_METHOD_GET) {
+        return nty_http_response_get_method(ev);
+    } else if (ev->method == HTTP_METHOD_POST) {
+    }
+
+    return 0;
 }
 
 int recv_cb(int fd, int events, void* arg) {
@@ -195,13 +254,13 @@ int recv_cb(int fd, int events, void* arg) {
         ev->buffer[len] = '\0';
 
         printf("recv [%d]:%s\n", fd, ev->buffer);
-        //        nty_http_request(ev);
+        nty_http_request(ev);  // parse http header
 
         nty_event_set(ev, fd, send_cb, reactor);
         nty_event_add(reactor->epoll_fd, EPOLLOUT, ev);
     } else if (len == 0) {
         nty_event_del(reactor->epoll_fd, ev);
-        printf("recv_cv --> disconnect\n");
+        //        printf("recv_cv --> disconnect\n");
         close(ev->fd);
     } else {
         if (errno == EAGAIN && errno == EWOULDBLOCK) {  //
@@ -210,7 +269,7 @@ int recv_cb(int fd, int events, void* arg) {
             nty_event_del(reactor->epoll_fd, ev);
             close(ev->fd);
         }
-        printf("recv[fd=%d] error[%d]:%s\n", fd, errno, strerror(errno));
+        //        printf("recv[fd=%d] error[%d]:%s\n", fd, errno, strerror(errno));
     }
 
     return len;
@@ -224,9 +283,35 @@ int send_cb(int fd, int events, void* arg) {
         return -1;
     }
 
-    int len = send(fd, ev->buffer, ev->length, 0);
+    nty_http_response(ev);
+
+    int len = send(fd, ev->w_buffer, ev->w_length, 0);
     if (len > 0) {
-        printf("send[fd=%d], [%d]%s\n", fd, len, ev->buffer);
+        //        printf("send[fd=%d], [%d]%s\n", fd, len, ev->buffer);
+
+        int file_fd = open(ev->resource, O_RDONLY);
+        /*if (file_fd < 0) {
+            return -1;
+        }*/
+
+        struct stat stat_buf;
+        fstat(file_fd, &stat_buf);
+
+        int flag = fcntl(fd, F_GETFL, 0);
+        flag &= ~O_NONBLOCK;
+        fcntl(fd, F_SETFL, flag);
+
+        int ret = sendfile(fd, file_fd, NULL, stat_buf.st_size);
+        if (ret == -1) {
+            printf("sendfile: errnor: %d\n", errno);
+        }
+
+        flag |= O_NONBLOCK;
+        fcntl(fd, F_SETFL, flag);
+
+        close(file_fd);
+
+        send(fd, "\r\n", 2, 0);
 
         nty_event_del(reactor->epoll_fd, ev);
         nty_event_set(ev, fd, recv_cb, reactor);
@@ -235,7 +320,7 @@ int send_cb(int fd, int events, void* arg) {
         nty_event_del(reactor->epoll_fd, ev);
         close(ev->fd);
 
-        printf("send[fd=%d] error %s\n", fd, strerror(errno));
+        //        printf("send[fd=%d] error %s\n", fd, strerror(errno));
     }
 
     return len;
@@ -254,7 +339,7 @@ int accept_cb(int fd, int events, void* arg) {
     if ((client_fd = accept(fd, (struct sockaddr*)&client_addr, &len)) == -1) {
         if (errno != EAGAIN && errno != EINTR) {
         }
-        printf("accept: %s\n", strerror(errno));
+        //        printf("accept: %s\n", strerror(errno));
         return -1;
     }
 
@@ -273,7 +358,8 @@ int accept_cb(int fd, int events, void* arg) {
     nty_event_set(event, client_fd, recv_cb, reactor);
     nty_event_add(reactor->epoll_fd, EPOLLIN, event);
 
-    printf("new connect [%s:%d], pos[%d]\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), client_fd);
+    //    printf("new connect [%s:%d], pos[%d]\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port),
+    //    client_fd);
 
     return 0;
 }

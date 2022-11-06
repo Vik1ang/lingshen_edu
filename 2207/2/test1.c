@@ -25,7 +25,7 @@
 #define MAX_EPOLL_EVENTS	1024
 #define RESOURCE_LENGTH	1024
 
-#define SERVER_PORT			19999
+#define SERVER_PORT			19998
 #define PORT_COUNT			1
 
 typedef int NCALLBACK(int ,int, void*);
@@ -35,7 +35,7 @@ typedef int NCALLBACK(int ,int, void*);
 #define HTTP_METHOD_POST	1
 
 
-#define HTTP_WEB_ROOT	"/home/king/share/0voice2207/2.1.3_webserver/html"
+#define HTTP_WEB_ROOT	"/home/vik1ang/Workspace/lingshen/2207/2"
 
 
 struct ntyevent {
