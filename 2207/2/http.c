@@ -219,8 +219,7 @@ int nty_http_response_get_method(struct nty_event* ev) {
                       "Accept-Ranges: bytes\r\n"
                       "Content-Length: %ld\r\n"
                       "Content-Type: text/html\r\n"
-                      "Date: Sun, 06 Nov 2022 15:42:23 GMT\r\n\r\n"
-                      "<html><head><title>0voice.king</title></head><body><h1>King</h1><body/></html>",
+                      "Date: Sun, 06 Nov 2022 15:42:23 GMT\r\n\r\n",
                       stat_buf.st_size);
         ev->w_length = len;
     }
