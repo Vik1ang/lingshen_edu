@@ -11,8 +11,12 @@
 
 #define BUFFER_LENGTH    1024
 #define MAX_EPOLL_EVENTS 1024
+#define RESOURCE_LENGTH  1024
 #define SERVER_PORT      19999
-#define PORT_COUNT       100
+#define PORT_COUNT       1
+
+#define HTTP_METHOD_GET  0
+#define HTTP_METHOD_POST 1
 
 typedef int N_CALLBACK(int, int, void*);
 
@@ -25,6 +29,9 @@ struct nty_event {
     int status;
     char buffer[BUFFER_LENGTH];
     int length;
+
+    int method;
+    char resource[RESOURCE_LENGTH];
 };
 
 struct event_block {
@@ -137,6 +144,40 @@ struct nty_event* nty_reactor_idx(struct nty_reactor* reactor, int sock_fd) {
     return &blk->events[sock_fd % MAX_EPOLL_EVENTS];
 }
 
+int readline(char* all_buf, int idx, char* line_buf) {
+    int len = strlen(all_buf);
+
+    for (; idx < len; ++idx) {
+        if (all_buf[idx] == '\r' && all_buf[idx + 1] == '\n') {
+            return idx + 2;
+        } else {
+            *(line_buf++) = all_buf[idx];
+        }
+    }
+    return -1;
+}
+
+int nty_http_request(struct nty_event* ev) {
+    char line_buff[1024] = {0};
+    int idx = readline(ev->buffer, 0, line_buff);
+    printf("line: %s\n", line_buff);
+
+    if (strstr(line_buff, "GET")) {
+        ev->method = HTTP_METHOD_GET;
+        int i = 0;
+        while (line_buff[sizeof("GET ") + i] != ' ') {
+            i++;
+        }
+        line_buff[sizeof("GET ") + i] = '\0';
+
+        sprintf(ev->resource, "%s", line_buff + sizeof("GET "));
+
+        printf("resource: %s", ev->resource);
+    } else if (strstr(line_buff, "POST")) {
+        ev->method = HTTP_METHOD_POST;
+    }
+}
+
 int recv_cb(int fd, int events, void* arg) {
     struct nty_reactor* reactor = (struct nty_reactor*)arg;
     struct nty_event* ev = nty_reactor_idx(reactor, fd);
@@ -153,6 +194,7 @@ int recv_cb(int fd, int events, void* arg) {
         ev->buffer[len] = '\0';
 
         printf("recv [%d]:%s\n", fd, ev->buffer);
+        nty_http_request(ev);
 
         nty_event_set(ev, fd, send_cb, reactor);
         nty_event_add(reactor->epoll_fd, EPOLLOUT, ev);
