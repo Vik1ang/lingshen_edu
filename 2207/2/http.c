@@ -114,6 +114,7 @@ int nty_reactor_alloc(struct nty_reactor* reactor) {
     struct event_block* block = malloc(sizeof(struct event_block));
     if (block == NULL) {
         printf("nty_reactor_alloc event_block failed\n");
+        free(event);
         return -3;
     }
     block->events = event;
@@ -194,7 +195,7 @@ int recv_cb(int fd, int events, void* arg) {
         ev->buffer[len] = '\0';
 
         printf("recv [%d]:%s\n", fd, ev->buffer);
-        nty_http_request(ev);
+        //        nty_http_request(ev);
 
         nty_event_set(ev, fd, send_cb, reactor);
         nty_event_add(reactor->epoll_fd, EPOLLOUT, ev);
@@ -250,7 +251,7 @@ int accept_cb(int fd, int events, void* arg) {
     socklen_t len = sizeof(client_addr);
 
     int client_fd = 0;
-    if ((client_fd = accept(fd, (struct sockaddr*)&client_addr, &len) == -1)) {
+    if ((client_fd = accept(fd, (struct sockaddr*)&client_addr, &len)) == -1) {
         if (errno != EAGAIN && errno != EINTR) {
         }
         printf("accept: %s\n", strerror(errno));
@@ -352,8 +353,6 @@ int nty_reactor_run(struct nty_reactor* reactor) {
 
     struct epoll_event events[MAX_EPOLL_EVENTS + 1];
 
-    int check_pos = 0;
-
     while (1) {
         int n_ready = epoll_wait(reactor->epoll_fd, events, MAX_EPOLL_EVENTS, 1000);
         if (n_ready < 0) {
@@ -395,6 +394,8 @@ int init_sock(short port) {
 }
 
 int main(int argc, char* argv[]) {
+    setbuf(stdout, 0);
+
     struct nty_reactor* reactor = (struct nty_reactor*)malloc(sizeof(struct nty_reactor));
     nty_reactor_init(reactor);
 
