@@ -143,7 +143,7 @@ int main() {
 
     while (1) {
         int n_ready = epoll_wait(r->epoll_fd, epoll_events, EVENTS_LENGTH, -1);  // 0: 立即返回 -1: 阻塞, 0: 以上代表
-        //        printf("------ n_ready: %d\n", n_ready);
+        printf("------ n_ready: %d\n", n_ready);
         for (int i = 0; i < n_ready; ++i) {
             int client_fd = epoll_events[i].data.fd;
 
@@ -151,15 +151,18 @@ int main() {
                 struct sockaddr_in client;
                 socklen_t len = sizeof(client);
                 int conn_fd = accept(listen_fd, (struct sockaddr*)&client, &len);
+                if (conn_fd <= 0) {
+                    break;
+                }
                 printf("accept\t conn_fd: %d\n", conn_fd);
                 //                ev.events = EPOLLIN | EPOLLET;  // 水平触发 边沿触发
                 ev.events = EPOLLIN;
                 ev.data.fd = conn_fd;
                 epoll_ctl(r->epoll_fd, EPOLL_CTL_ADD, conn_fd, &ev);
 
-                int flag = fcntl(conn_fd, F_GETFL, 0);
+                /*int flag = fcntl(conn_fd, F_GETFL, 0);
                 flag |= O_NONBLOCK;
-                fcntl(conn_fd, F_SETFL, flag);
+                fcntl(conn_fd, F_SETFL, flag);*/
 
 #if 0
                 r->items[conn_fd].fd = conn_fd;
@@ -178,6 +181,7 @@ int main() {
                 item->r_length = 0;
                 item->w_buffer = calloc(1, BUFFER_LENGTH);
                 item->w_length = 0;
+                item->event = EPOLLIN;
 #endif
             } else if (epoll_events[i].events & EPOLLIN) {  // receive
 #if 0
@@ -190,13 +194,14 @@ int main() {
 #endif
                 int n = recv(client_fd, r_buffer, BUFFER_LENGTH, 0);
                 if (n > 0) {
-                    r_buffer[n] = '\0';
+                    //                    r_buffer[n] = '\0';
                     printf("recv: %s\n", r_buffer);
 
                     memcpy(w_buffer, r_buffer, BUFFER_LENGTH);
 
                     ev.events = EPOLLOUT;
                     ev.data.fd = client_fd;
+
                     epoll_ctl(r->epoll_fd, EPOLL_CTL_MOD, client_fd, &ev);
                     //                    send(client_fd, buffer, n, 0);
                 } else if (n == 0) {
