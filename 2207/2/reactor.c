@@ -7,9 +7,10 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define BUFFER_LENGTH 1024
-#define EVENTS_LENGTH 1024
-#define ITEM_LENGTH   1024
+#define BUFFER_LENGTH 128
+#define EVENTS_LENGTH 128
+#define ITEM_LENGTH   128
+#define PORT_COUNT    100
 
 struct socket_item {
     int fd;
@@ -99,9 +100,47 @@ struct socket_item* reactor_lookup(struct reactor* r, int socket_fd) {
     return &blk->items[socket_fd % ITEM_LENGTH];
 }
 
+int is_listen_fd(int* fds, int conn_fd) {
+    for (int i = 0; i < PORT_COUNT; ++i) {
+        if (fds[i] == conn_fd) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int init_server(short port) {
+    int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (listen_fd == -1) {
+        return -1;
+    }
+
+    //    printf("listen_fd: %d\n", listen_fd);
+
+    struct sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv_addr.sin_port = htons(port);
+
+    if (bind(listen_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
+        return -2;
+    }
+
+#if 1
+    int flag = fcntl(listen_fd, F_GETFL, 0);
+    flag |= O_NONBLOCK;
+    fcntl(listen_fd, F_SETFL, flag);
+#endif
+
+    listen(listen_fd, 10);
+
+    return listen_fd;
+}
+
 int main() {
     setbuf(stdout, 0);  // 奇怪有时候在某些windows电脑上使用不加这个会报错
 
+#if 0
     int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_fd == -1) {
         return -1;
@@ -125,6 +164,31 @@ int main() {
         return -3;
     }
 
+    r->epoll_fd = epoll_create(1);
+
+    struct epoll_event ev, epoll_events[EVENTS_LENGTH];
+    ev.events = EPOLLIN;
+    ev.data.fd = listen_fd;
+#else
+
+    struct reactor* r = (struct reactor*)calloc(1, sizeof(struct reactor));
+    if (r == NULL) {
+        return -3;
+    }
+
+    r->epoll_fd = epoll_create(1);
+
+    struct epoll_event ev, epoll_events[EVENTS_LENGTH];
+
+    int socket_fds[PORT_COUNT] = {0};
+    for (int i = 0; i < PORT_COUNT; ++i) {
+        socket_fds[i] = init_server(19999 + i);
+        ev.events = EPOLLIN;
+        ev.data.fd = socket_fds[i];
+        epoll_ctl(r->epoll_fd, EPOLL_CTL_ADD, socket_fds[i], &ev);
+    }
+#endif
+
     /*r->items = (struct socket_item*)calloc(EVENTS_LENGTH, sizeof(struct socket_item));
     if (r->items == NULL) {
         free(r);
@@ -132,30 +196,34 @@ int main() {
     }*/
 
     // epoll
-    r->epoll_fd = epoll_create(1);
 
-    struct epoll_event ev, epoll_events[EVENTS_LENGTH];
-    ev.events = EPOLLIN;
-    ev.data.fd = listen_fd;
-
-    epoll_ctl(r->epoll_fd, EPOLL_CTL_ADD, listen_fd, &ev);
     printf("epoll_fd: %d\n", r->epoll_fd);
 
     while (1) {
         int n_ready = epoll_wait(r->epoll_fd, epoll_events, EVENTS_LENGTH, -1);  // 0: 立即返回 -1: 阻塞, 0: 以上代表
-        printf("------ n_ready: %d\n", n_ready);
+        //        printf("------ n_ready: %d\n", n_ready);
         for (int i = 0; i < n_ready; ++i) {
             int client_fd = epoll_events[i].data.fd;
 
-            if (listen_fd == client_fd) {  // accept
+            if (is_listen_fd(socket_fds, client_fd)) {  // accept
                 struct sockaddr_in client;
                 socklen_t len = sizeof(client);
-                int conn_fd = accept(listen_fd, (struct sockaddr*)&client, &len);
+                int conn_fd = accept(client_fd, (struct sockaddr*)&client, &len);
                 if (conn_fd <= 0) {
                     break;
                 }
-                printf("accept\t conn_fd: %d\n", conn_fd);
+                if (conn_fd % 19999 == 9999) {
+                    printf("accept\t conn_fd: %d\n", conn_fd);
+                }
+                //                printf("accept\t conn_fd: %d\n", conn_fd);
                 //                ev.events = EPOLLIN | EPOLLET;  // 水平触发 边沿触发
+
+#if 1
+                int flag = fcntl(conn_fd, F_GETFL, 0);
+                flag |= O_NONBLOCK;
+                fcntl(conn_fd, F_SETFL, flag);
+#endif
+
                 ev.events = EPOLLIN;
                 ev.data.fd = conn_fd;
                 epoll_ctl(r->epoll_fd, EPOLL_CTL_ADD, conn_fd, &ev);
