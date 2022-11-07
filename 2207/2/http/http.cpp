@@ -170,7 +170,7 @@ int recv_cb(int fd, int events, void* arg) {
 }
 
 int send_cb(int fd, int events, void* arg) {
-    auto* reactor = static_cast<struct nty_reactor*>(arg);
+    auto* reactor = static_cast<nty_reactor*>(arg);
     nty_event* ev = nty_reactor_idx(reactor, fd);
     if (ev == nullptr) {
         return -1;
