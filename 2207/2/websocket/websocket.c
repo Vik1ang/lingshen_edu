@@ -19,6 +19,8 @@
 #define HTTP_METHOD_GET  0
 #define HTTP_METHOD_POST 1
 
+#define GUID "fe4faac1-14ec-4e11-9d8a-5213dd5adba8"
+
 #define HTTP_WEB_ROOT "/home/vik1ang/Workspace/lingshen/2207/2"
 
 typedef int N_CALLBACK(int, int, void*);
@@ -236,6 +238,26 @@ int nty_http_response(struct nty_event* ev) {
     return 0;
 }
 
+int ws_request(struct nty_event* ev) {
+    int idx = 0;
+    char sec_data[128] = {0};
+    do {
+        char line_buf[BUFFER_LENGTH] = {0};
+        idx = readline(ev->buffer, idx, line_buf);
+        if (strstr(line_buf, "Sec-WebSocket-Key")) {
+            printf("idx: %d, line: %s\n", idx, line_buf);
+            strcat(line_buf, GUID);
+            char* str = line_buf + sizeof("Sec-WebSocket-Key: ");
+            SHA1(str, strlen(str), sec_data);
+        }
+        //        printf("idx: %d, line: %s\n", idx, line_buf);
+    } while (ev->buffer[idx] != '\r' || ev->buffer[idx + 1] != '\n');
+
+    return 0;
+}
+
+int ws_response(struct nty_event* ev) { return 0; }
+
 int recv_cb(int fd, int events, void* arg) {
     struct nty_reactor* reactor = (struct nty_reactor*)arg;
     struct nty_event* ev = nty_reactor_idx(reactor, fd);
@@ -250,6 +272,8 @@ int recv_cb(int fd, int events, void* arg) {
     if (len > 0) {
         ev->length = len;
         ev->buffer[len] = '\0';
+
+        ws_request(ev);
 
         printf("recv [%d]:%s\n", fd, ev->buffer);
         nty_http_request(ev);  // parse http header
