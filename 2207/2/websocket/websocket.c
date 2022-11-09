@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -28,7 +29,14 @@
 
 #define HTTP_WEB_ROOT "/home/vik1ang/Workspace/lingshen/2207/2"
 
+enum { WS_HANDSHAKE = 0, WS_Transmission = 1, WS_END = 2, WS_COUNT };
+
 typedef int N_CALLBACK(int, int, void*);
+
+struct ws_ophdr {
+    unsigned char opcode : 4, rsv3 : 1, rsv2 : 1, rsv1 : 1, fin : 1;
+    unsigned char pl_len : 7, mask : 1;
+};
 
 struct nty_event {
     int fd;
@@ -47,6 +55,8 @@ struct nty_event {
     char resource[RESOURCE_LENGTH];
 
     char sec_accept[ACCEPT_KEY_LENGTH];
+
+    int w_satus;
 };
 
 struct event_block {
@@ -269,7 +279,7 @@ int base64_encode(char* in_str, int in_len, char* out_str) {
     return size;
 }
 
-int ws_request(struct nty_event* ev) {
+int ws_handshake(struct nty_event* ev) {
     int idx = 0;
     char sec_data[128] = {0};
     char sec_accept[128] = {0};
@@ -281,13 +291,51 @@ int ws_request(struct nty_event* ev) {
             SHA1(line_buf + 19, strlen(line_buf + 19), sec_data);
             base64_encode(sec_data, strlen(sec_data), sec_accept);
 
-            printf("idx: %d, line: %ld\n", idx, sizeof("Sec-WebSocket-Key: "));
+            //            printf("idx: %d, line: %ld\n", idx, sizeof("Sec-WebSocket-Key: "));
             memcpy(ev->sec_accept, sec_accept, ACCEPT_KEY_LENGTH);
         }
         //        printf("idx: %d, line: %s\n", idx, line_buf);
     } while ((ev->buffer[idx] != '\r' || ev->buffer[idx + 1] != '\n') && idx != -1);
 
     return 0;
+}
+
+void umask1(char* payload, int length, char* mask_key) {
+    for (int i = 0; i < length; ++i) {
+        payload[i] ^= mask_key[i % 4];
+    }
+}
+
+int ws_transmission(struct nty_event* ev) {
+    struct ws_ophdr* hdr = (struct ws_ophdr*)ev->buffer;
+
+    if (hdr->pl_len < 126) {
+        unsigned char* payload = NULL;
+        if (hdr->mask) {
+            payload = ev->buffer + 2 + 4;
+            umask1(payload, hdr->pl_len, ev->buffer + 2);
+        } else {
+            payload = ev->buffer + 2;
+        }
+        printf("payload: %s\n", payload);
+    } else if (hdr->pl_len == 126) {
+    } else if (hdr->pl_len == 127) {
+    } else {
+        //        assert(0);
+    }
+
+    return 0;
+}
+
+
+
+int ws_request(struct nty_event* ev) {
+    if (ev->w_satus == WS_HANDSHAKE) {
+        ws_handshake(ev);
+        ev->w_satus = WS_Transmission;
+    } else if (ev->w_satus == WS_Transmission) {
+        ws_transmission(ev);
+    }
 }
 
 int ws_response(struct nty_event* ev) {
