@@ -1,6 +1,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/sha.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,16 +14,17 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define BUFFER_LENGTH    1024
-#define MAX_EPOLL_EVENTS 1024
-#define RESOURCE_LENGTH  1024
-#define SERVER_PORT      19996
-#define PORT_COUNT       1
+#define BUFFER_LENGTH     1024
+#define MAX_EPOLL_EVENTS  1024
+#define RESOURCE_LENGTH   1024
+#define SERVER_PORT       19996
+#define PORT_COUNT        1
+#define ACCEPT_KEY_LENGTH 64
 
 #define HTTP_METHOD_GET  0
 #define HTTP_METHOD_POST 1
 
-#define GUID "fe4faac1-14ec-4e11-9d8a-5213dd5adba8"
+#define GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 #define HTTP_WEB_ROOT "/home/vik1ang/Workspace/lingshen/2207/2"
 
@@ -40,6 +45,8 @@ struct nty_event {
 
     int method;
     char resource[RESOURCE_LENGTH];
+
+    char sec_accept[ACCEPT_KEY_LENGTH];
 };
 
 struct event_block {
@@ -238,25 +245,61 @@ int nty_http_response(struct nty_event* ev) {
     return 0;
 }
 
+int base64_encode(char* in_str, int in_len, char* out_str) {
+    BIO *b64, *bio;
+    BUF_MEM* bptr = NULL;
+    size_t size = 0;
+
+    if (in_str == NULL || out_str == NULL)
+        return -1;
+
+    b64 = BIO_new(BIO_f_base64());
+    bio = BIO_new(BIO_s_mem());
+    bio = BIO_push(b64, bio);
+
+    BIO_write(bio, in_str, in_len);
+    BIO_flush(bio);
+
+    BIO_get_mem_ptr(bio, &bptr);
+    memcpy(out_str, bptr->data, bptr->length);
+    out_str[bptr->length - 1] = '\0';
+    size = bptr->length;
+
+    BIO_free_all(bio);
+    return size;
+}
+
 int ws_request(struct nty_event* ev) {
     int idx = 0;
     char sec_data[128] = {0};
+    char sec_accept[128] = {0};
     do {
         char line_buf[BUFFER_LENGTH] = {0};
         idx = readline(ev->buffer, idx, line_buf);
         if (strstr(line_buf, "Sec-WebSocket-Key")) {
-            printf("idx: %d, line: %s\n", idx, line_buf);
             strcat(line_buf, GUID);
-            char* str = line_buf + sizeof("Sec-WebSocket-Key: ");
-            SHA1(str, strlen(str), sec_data);
+            SHA1(line_buf + 19, strlen(line_buf + 19), sec_data);
+            base64_encode(sec_data, strlen(sec_data), sec_accept);
+
+            printf("idx: %d, line: %ld\n", idx, sizeof("Sec-WebSocket-Key: "));
+            memcpy(ev->sec_accept, sec_accept, ACCEPT_KEY_LENGTH);
         }
         //        printf("idx: %d, line: %s\n", idx, line_buf);
-    } while (ev->buffer[idx] != '\r' || ev->buffer[idx + 1] != '\n');
+    } while ((ev->buffer[idx] != '\r' || ev->buffer[idx + 1] != '\n') && idx != -1);
 
     return 0;
 }
 
-int ws_response(struct nty_event* ev) { return 0; }
+int ws_response(struct nty_event* ev) {
+    ev->w_length = sprintf(ev->w_buffer,
+                           "HTTP/1.1 101 Switching Protocols\r\n"
+                           "Upgrade: websocket\r\n"
+                           "Connection: Upgrade\r\n"
+                           "Sec-WebSocket-Accept: %s\r\n\r\n",
+                           ev->sec_accept);
+    //    printf("response: %s\n", );
+    return ev->w_length;
+}
 
 int recv_cb(int fd, int events, void* arg) {
     struct nty_reactor* reactor = (struct nty_reactor*)arg;
@@ -273,10 +316,10 @@ int recv_cb(int fd, int events, void* arg) {
         ev->length = len;
         ev->buffer[len] = '\0';
 
-        ws_request(ev);
+        //        printf("recv [%d]:%s\n", fd, ev->buffer);
+        //        nty_http_request(ev);  // parse http header
 
-        printf("recv [%d]:%s\n", fd, ev->buffer);
-        nty_http_request(ev);  // parse http header
+        ws_request(ev);
 
         nty_event_set(ev, fd, send_cb, reactor);
         nty_event_add(reactor->epoll_fd, EPOLLOUT, ev);
@@ -305,35 +348,37 @@ int send_cb(int fd, int events, void* arg) {
         return -1;
     }
 
-    nty_http_response(ev);
+    //    nty_http_response(ev);
+    ws_response(ev);
 
     int len = send(fd, ev->w_buffer, ev->w_length, 0);
     if (len > 0) {
-        //        printf("send[fd=%d], [%d]%s\n", fd, len, ev->buffer);
+        printf("send[fd=%d], [%d]%s\n", fd, len, ev->buffer);
 
-        int file_fd = open(ev->resource, O_RDONLY);
+        /*int file_fd = open(ev->resource, O_RDONLY);
+         */
         /*if (file_fd < 0) {
-            return -1;
-        }*/
+         return -1;
+     }*/ /*
 
-        struct stat stat_buf;
-        fstat(file_fd, &stat_buf);
+      struct stat stat_buf;
+      fstat(file_fd, &stat_buf);
 
-        int flag = fcntl(fd, F_GETFL, 0);
-        flag &= ~O_NONBLOCK;
-        fcntl(fd, F_SETFL, flag);
+      int flag = fcntl(fd, F_GETFL, 0);
+      flag &= ~O_NONBLOCK;
+      fcntl(fd, F_SETFL, flag);
 
-        int ret = sendfile(fd, file_fd, NULL, stat_buf.st_size);
-        if (ret == -1) {
-            printf("sendfile: errnor: %d\n", errno);
-        }
+      int ret = sendfile(fd, file_fd, NULL, stat_buf.st_size);
+      if (ret == -1) {
+          printf("sendfile: errnor: %d\n", errno);
+      }
 
-        flag |= O_NONBLOCK;
-        fcntl(fd, F_SETFL, flag);
+      flag |= O_NONBLOCK;
+      fcntl(fd, F_SETFL, flag);
 
-        close(file_fd);
+      close(file_fd);
 
-        send(fd, "\r\n", 2, 0);
+      send(fd, "\r\n", 2, 0);*/
 
         nty_event_del(reactor->epoll_fd, ev);
         nty_event_set(ev, fd, recv_cb, reactor);
