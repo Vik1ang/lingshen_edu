@@ -1,0 +1,2 @@
+add_executable(sync_dns_client_c sync_dns_client.c)
+#add_executable(async_dns_client_noblock_c async_dns_client_noblock.c)
