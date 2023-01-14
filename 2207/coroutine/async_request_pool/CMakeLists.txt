@@ -1,0 +1,7 @@
+add_executable(sync_dns_client_c sync_dns_client.c)
+add_executable(sync_dns_client_cpp sync_dns_client.cpp)
+
+add_executable(async_dns_client_noblock_c async_dns_client_noblock.c)
+add_executable(async_dns_client_cpp async_dns_client.cpp)
+target_link_libraries(async_dns_client_noblock_c PUBLIC Threads::Threads)
+target_link_libraries(async_dns_client_cpp PUBLIC Threads::Threads)

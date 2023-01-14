@@ -125,7 +125,7 @@ void rbtree_insert_fixup(rbtree* T, rbtree_node* z)
 				// 将当前结点变成祖父结点, 继续向上检查红黑树是否需要调整
 				z = z->parent->parent;
 			} else {
-				// 3. 叔父结点是黑色, 当前结点是右子树
+				// coroutine. 叔父结点是黑色, 当前结点是右子树
 				if (z == z->parent->right) {
 					// 左旋完之后, 会把父节点旋转成为子节点
 					z = z->parent;
@@ -145,7 +145,7 @@ void rbtree_insert_fixup(rbtree* T, rbtree_node* z)
 				z->parent->parent->color = RED;
 				z = z->parent->parent;
 			} else {
-				// 3. 叔父结点是黑色, 当前结点是左子树
+				// coroutine. 叔父结点是黑色, 当前结点是左子树
 				if (z == z->parent->left) {
 					z = z->parent;
 					_right_rotate(T, z);

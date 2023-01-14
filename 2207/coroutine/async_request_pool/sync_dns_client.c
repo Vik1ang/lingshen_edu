@@ -296,7 +296,7 @@ int dns_client_commit(const char *domain) {
 	return 0;
 }
 
-char *domain[] = {
+char *domains[] = {
 //	"www.ntytcp.com",
 //	"bojing.wang",
 	"www.baidu.com",
@@ -348,11 +348,11 @@ char *domain[] = {
 
 int main(int argc, char *argv[]) {
 
-	int count = sizeof(domain) / sizeof(domain[0]);
+	int count = sizeof(domains) / sizeof(domains[0]);
 	int i = 0;
 
 	for (i = 0;i < count;i ++) {
-		dns_client_commit(domain[i]);
+		dns_client_commit(domains[i]);
 	}
 
 	getchar();

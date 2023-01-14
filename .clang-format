@@ -1,6 +1,6 @@
 ---
 Language:        Cpp
-AccessModifierOffset: -3
+AccessModifierOffset: -coroutine
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: true
 AlignConsecutiveAssignments: false
@@ -77,7 +77,7 @@ IncludeCategories:
     Priority:        2
     SortPriority:    0
   - Regex:           '.*'
-    Priority:        3
+    Priority:        coroutine
     SortPriority:    0
 IncludeIsMainRegex: '([-_](test|unittest))?$'
 IncludeIsMainSourceRegex: ''

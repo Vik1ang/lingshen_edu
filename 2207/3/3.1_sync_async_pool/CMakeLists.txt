@@ -1,2 +1,0 @@
-add_executable(sync_dns_client_c_1 sync_dns_client_c_1.c)
-add_executable(sync_dns_client_cpp_1 sync_dns_client_cpp_1.cpp)
